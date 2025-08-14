@@ -2,13 +2,16 @@ import discord
 from discord.ext import commands, tasks
 from datetime import datetime
 import pytz
+import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # ---------------- CONFIG ---------------- #
-import os
-
 TOKEN = os.getenv("DISCORD_TOKEN")  # Reads token from environment
-# Replace with your bot token
 TIMEZONE_DEFAULT = "Asia/Kolkata"  # Change if needed
+
+# Get Render's assigned port (fallback to 8080 for local testing)
+PORT = int(os.environ.get("PORT", 8080))
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -16,6 +19,24 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 # In-memory schedule storage
 schedules = []  # Each schedule will have a "last_sent" to avoid duplicates
+
+
+# ---------------- TINY HTTP SERVER ---------------- #
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Bot is running")
+
+def start_http_server():
+    server = HTTPServer(("", PORT), SimpleHandler)
+    print(f"✅ HTTP server running on port {PORT}")
+    server.serve_forever()
+
+# Start HTTP server in a separate thread so the bot isn't blocked
+threading.Thread(target=start_http_server, daemon=True).start()
+
 
 # ---------------- SCHEDULE FUNCTIONS ---------------- #
 def add_schedule(message, channel_id, days, hour, minute, timezone):
@@ -29,20 +50,18 @@ def add_schedule(message, channel_id, days, hour, minute, timezone):
         "last_sent": None  # Track when it was last sent
     })
 
+
 # ---------------- EVENTS ---------------- #
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
     schedule_checker.start()
 
+
 # ---------------- COMMANDS ---------------- #
 @bot.command()
 async def addschedule(ctx, channel: discord.TextChannel, time_str: str, days: str, *, message: str):
-    """
-    Add a schedule.
-    Example:
-    !addschedule #general 21:29 monday,tuesday Hello World!
-    """
+    """Add a schedule. Example: !addschedule #general 21:29 monday,tuesday Hello World!"""
     try:
         hour, minute = map(int, time_str.split(":"))
         days_list = [d.strip().lower() for d in days.split(",")]
@@ -59,6 +78,7 @@ async def addschedule(ctx, channel: discord.TextChannel, time_str: str, days: st
     except Exception as e:
         await ctx.send(f"❌ Error: {e}")
 
+
 @bot.command()
 async def listschedules(ctx):
     """List all schedules."""
@@ -72,6 +92,7 @@ async def listschedules(ctx):
         ch_name = ch.mention if ch else f"ID:{s['channel_id']}"
         msg += f"**{i}** ➡ {ch_name} | {', '.join(s['days'])} at {s['hour']:02d}:{s['minute']:02d} ({s['timezone']}) | Msg: {s['message']}\n"
     await ctx.send(msg)
+
 
 @bot.command()
 async def removeschedule(ctx, index: str = None):
@@ -92,11 +113,13 @@ async def removeschedule(ctx, index: str = None):
     removed = schedules.pop(index - 1)
     await ctx.send(f"✅ Removed schedule: `{removed['message']}`")
 
+
 @bot.command()
 async def clearschedules(ctx):
     """Clear all schedules."""
     schedules.clear()
     await ctx.send("🗑️ All schedules cleared.")
+
 
 @bot.command()
 async def help(ctx):
@@ -108,6 +131,7 @@ async def help(ctx):
     embed.add_field(name="!clearschedules", value="Remove all schedules.", inline=False)
     embed.add_field(name="!help", value="Show this help message.", inline=False)
     await ctx.send(embed=embed)
+
 
 # ---------------- BACKGROUND TASK ---------------- #
 @tasks.loop(seconds=10)
@@ -127,14 +151,17 @@ async def schedule_checker():
             if s["last_sent"] != current_date:
                 ch = bot.get_channel(s["channel_id"])
                 if ch:
-                    await ch.send(s["message"])
-                    s["last_sent"] = current_date
+                    try:
+                        await ch.send(s["message"])
+                        s["last_sent"] = current_date
+                    except Exception as e:
+                        print(f"❌ Failed to send message to {s['channel_id']}: {e}")
+
 
 @schedule_checker.before_loop
 async def before_schedule_checker():
     await bot.wait_until_ready()
 
+
 # ---------------- RUN BOT ---------------- #
 bot.run(TOKEN)
-
-
