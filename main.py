@@ -134,7 +134,7 @@ async def help(ctx):
 
 
 # ---------------- BACKGROUND TASK ---------------- #
-@tasks.loop(seconds=10)
+@tasks.loop(seconds=60)
 async def schedule_checker():
     now = datetime.now(pytz.timezone(TIMEZONE_DEFAULT))
     current_day = now.strftime("%A").lower()
@@ -165,3 +165,4 @@ async def before_schedule_checker():
 
 # ---------------- RUN BOT ---------------- #
 bot.run(TOKEN)
+
