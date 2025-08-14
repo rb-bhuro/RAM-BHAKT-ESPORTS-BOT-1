@@ -4,7 +4,10 @@ from datetime import datetime
 import pytz
 
 # ---------------- CONFIG ---------------- #
-TOKEN = "MTM5NTQzMDQ0Mjk0OTI4NDA3Mw.GpWyw4.9ZF2pBcVyQ5hcU0NdbyOU-1JdXHMmWXvFzbK_4"  # Replace with your bot token
+import os
+
+TOKEN = os.getenv("DISCORD_TOKEN")  # Reads token from environment
+# Replace with your bot token
 TIMEZONE_DEFAULT = "Asia/Kolkata"  # Change if needed
 
 intents = discord.Intents.default()
@@ -133,4 +136,5 @@ async def before_schedule_checker():
 
 # ---------------- RUN BOT ---------------- #
 bot.run(TOKEN)
+
 
