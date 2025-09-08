@@ -1,5 +1,6 @@
 import discord
-from discord.ext import commands, tasks
+from discord import app_commands
+from discord.ext import tasks
 from datetime import datetime
 import pytz
 import os
@@ -7,19 +8,17 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # ---------------- CONFIG ---------------- #
-TOKEN = os.getenv("DISCORD_TOKEN")  # Reads token from environment
-TIMEZONE_DEFAULT = "Asia/Kolkata"  # Change if needed
-
-# Get Render's assigned port (fallback to 8080 for local testing)
+TOKEN = os.getenv("DISCORD_TOKEN") or ""
+TIMEZONE_DEFAULT = "Asia/Kolkata"
 PORT = int(os.environ.get("PORT", 8080))
 
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
+client = discord.Client(intents=intents)
+tree = app_commands.CommandTree(client)
 
 # In-memory schedule storage
-schedules = []  # Each schedule will have a "last_sent" to avoid duplicates
-
+schedules = []
 
 # ---------------- TINY HTTP SERVER ---------------- #
 class SimpleHandler(BaseHTTPRequestHandler):
@@ -34,11 +33,9 @@ def start_http_server():
     print(f"✅ HTTP server running on port {PORT}")
     server.serve_forever()
 
-# Start HTTP server in a separate thread so the bot isn't blocked
 threading.Thread(target=start_http_server, daemon=True).start()
 
-
-# ---------------- SCHEDULE FUNCTIONS ---------------- #
+# ---------------- FUNCTIONS ---------------- #
 def add_schedule(message, channel_id, days, hour, minute, timezone):
     schedules.append({
         "channel_id": channel_id,
@@ -47,28 +44,25 @@ def add_schedule(message, channel_id, days, hour, minute, timezone):
         "minute": minute,
         "message": message,
         "timezone": timezone,
-        "last_sent": None  # Track when it was last sent
+        "last_sent": None
     })
 
-
 # ---------------- EVENTS ---------------- #
-@bot.event
+@client.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
+    print(f"✅ Logged in as {client.user}")
+    await tree.sync()  # sync slash commands
     schedule_checker.start()
 
-
-# ---------------- COMMANDS ---------------- #
-@bot.command()
-async def addschedule(ctx, channel: discord.TextChannel, time_str: str, days: str, *, message: str):
-    """Add a schedule. Example: !addschedule #general 21:29 monday,tuesday Hello World!"""
+# ---------------- SLASH COMMANDS ---------------- #
+@tree.command(name="addschedule", description="Add a schedule")
+async def addschedule(interaction: discord.Interaction, channel: discord.TextChannel, time: str, days: str, message: str):
     try:
-        hour, minute = map(int, time_str.split(":"))
+        hour, minute = map(int, time.split(":"))
         days_list = [d.strip().lower() for d in days.split(",")]
-
         add_schedule(message, channel.id, days_list, hour, minute, TIMEZONE_DEFAULT)
 
-        await ctx.send(
+        await interaction.response.send_message(
             f"✅ **Schedule added:**\n"
             f"📢 Channel: {channel.mention}\n"
             f"📅 Days: {', '.join(days_list)}\n"
@@ -76,62 +70,42 @@ async def addschedule(ctx, channel: discord.TextChannel, time_str: str, days: st
             f"💬 Message: {message}"
         )
     except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
+        await interaction.response.send_message(f"❌ Error: {e}")
 
-
-@bot.command()
-async def listschedules(ctx):
-    """List all schedules."""
+@tree.command(name="listschedules", description="List all schedules")
+async def listschedules(interaction: discord.Interaction):
     if not schedules:
-        await ctx.send("📭 No schedules set.")
+        await interaction.response.send_message("📭 No schedules set.")
         return
-
     msg = "**📅 Current Schedules:**\n"
     for i, s in enumerate(schedules, start=1):
-        ch = bot.get_channel(s["channel_id"])
+        ch = client.get_channel(s["channel_id"])
         ch_name = ch.mention if ch else f"ID:{s['channel_id']}"
         msg += f"**{i}** ➡ {ch_name} | {', '.join(s['days'])} at {s['hour']:02d}:{s['minute']:02d} ({s['timezone']}) | Msg: {s['message']}\n"
-    await ctx.send(msg)
+    await interaction.response.send_message(msg)
 
-
-@bot.command()
-async def removeschedule(ctx, index: str = None):
-    """Remove a schedule by its index."""
-    if index is None:
-        await ctx.send("❌ Please provide the schedule number to remove. Example: `!removeschedule 1`")
-        return
-
-    if not index.isdigit():
-        await ctx.send("❌ Please provide a valid number for the schedule index.")
-        return
-
-    index = int(index)
+@tree.command(name="removeschedule", description="Remove a schedule by index")
+async def removeschedule(interaction: discord.Interaction, index: int):
     if index < 1 or index > len(schedules):
-        await ctx.send(f"❌ Invalid index. Please choose a number between 1 and {len(schedules)}.")
+        await interaction.response.send_message(f"❌ Invalid index. Choose between 1 and {len(schedules)}.")
         return
-
     removed = schedules.pop(index - 1)
-    await ctx.send(f"✅ Removed schedule: `{removed['message']}`")
+    await interaction.response.send_message(f"✅ Removed schedule: `{removed['message']}`")
 
-
-@bot.command()
-async def clearschedules(ctx):
-    """Clear all schedules."""
+@tree.command(name="clearschedules", description="Clear all schedules")
+async def clearschedules(interaction: discord.Interaction):
     schedules.clear()
-    await ctx.send("🗑️ All schedules cleared.")
+    await interaction.response.send_message("🗑️ All schedules cleared.")
 
-
-@bot.command()
-async def help(ctx):
-    """List all commands."""
+@tree.command(name="help", description="Show help")
+async def help(interaction: discord.Interaction):
     embed = discord.Embed(title="📖 Bot Commands", color=discord.Color.blue())
-    embed.add_field(name="!addschedule #channel HH:MM days message", value="Add a schedule.\nExample: `!addschedule #general 21:30 monday,tuesday Hello!`", inline=False)
-    embed.add_field(name="!listschedules", value="Show all schedules.", inline=False)
-    embed.add_field(name="!removeschedule index", value="Remove schedule by index.", inline=False)
-    embed.add_field(name="!clearschedules", value="Remove all schedules.", inline=False)
-    embed.add_field(name="!help", value="Show this help message.", inline=False)
-    await ctx.send(embed=embed)
-
+    embed.add_field(name="/addschedule", value="Add a New schedule.\nExample: `!addschedule #general 21:30 monday,tuesday Hello!`", inline=False)
+    embed.add_field(name="/listschedules", value="Show all schedules", inline=False)
+    embed.add_field(name="/removeschedule", value="Remove a schedule", inline=False)
+    embed.add_field(name="/clearschedules", value="Remove all schedules", inline=False)
+    embed.add_field(name="/help", value="Show this help message", inline=False)
+    await interaction.response.send_message(embed=embed)
 
 # ---------------- BACKGROUND TASK ---------------- #
 @tasks.loop(seconds=50)
@@ -143,29 +117,22 @@ async def schedule_checker():
     current_date = now.date()
 
     for s in schedules:
-        if (current_day in s["days"] 
-            and current_hour == s["hour"] 
+        if (current_day in s["days"]
+            and current_hour == s["hour"]
             and current_minute == s["minute"]):
 
-            # Avoid sending multiple times in the same day
             if s["last_sent"] != current_date:
-                ch = bot.get_channel(s["channel_id"])
+                ch = client.get_channel(s["channel_id"])
                 if ch:
                     try:
                         await ch.send(s["message"])
                         s["last_sent"] = current_date
                     except Exception as e:
-                        print(f"❌ Failed to send message to {s['channel_id']}: {e}")
-
+                        print(f"❌ Failed to send message: {e}")
 
 @schedule_checker.before_loop
 async def before_schedule_checker():
-    await bot.wait_until_ready()
-
+    await client.wait_until_ready()
 
 # ---------------- RUN BOT ---------------- #
-bot.run(TOKEN)
-
-
-
-
+client.run(TOKEN)
