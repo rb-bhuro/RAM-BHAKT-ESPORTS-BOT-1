@@ -14,15 +14,14 @@ TIMEZONE_DEFAULT = "Asia/Kolkata"
 PORT = int(os.environ.get("PORT", 8080))
 
 intents = discord.Intents.default()
-# message_content is not required for slash commands, but keep if you plan prefix commands later
-intents.message_content = True
+intents.members = True  # needed to find members by ID in guild
+intents.message_content = True  # not strictly required for slash commands but good to keep
 
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
-# in-memory schedules
-# each item: {"channel_id": int, "days": ["monday"], "hour": int, "minute": int, "message": str, "timezone": str, "last_sent": date_or_None}
-schedules = []
+# Global schedules (shared across servers)
+schedules = []  # each: {"channel_id": int, "days": ["monday"], "hour": int, "minute": int, "message": str, "timezone": str, "last_sent": date_or_None}
 
 # ---------------- HTTP SERVER (keepalive) ---------------- #
 class PingHandler(BaseHTTPRequestHandler):
@@ -39,7 +38,7 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-# ---------------- helper ---------------- #
+# ---------------- Helper ---------------- #
 def add_schedule(message, channel_id, days, hour, minute, timezone):
     schedules.append({
         "channel_id": channel_id,
@@ -53,7 +52,6 @@ def add_schedule(message, channel_id, days, hour, minute, timezone):
 
 # ---------------- Modal for multiline message ---------------- #
 class ScheduleModal(discord.ui.Modal, title="Schedule message"):
-    # TextInput as a class attribute (paragraph style = multiline)
     message = discord.ui.TextInput(
         label="Message",
         style=discord.TextStyle.paragraph,
@@ -69,13 +67,8 @@ class ScheduleModal(discord.ui.Modal, title="Schedule message"):
         self.timezone = timezone
 
     async def on_submit(self, interaction: discord.Interaction):
-        # message typed in modal (allows real newlines)
         text = self.message.value
-
-        # Fallback: user may have typed literal "\n" — convert those to real newlines
-        text = text.replace("\\n", "\n")
-
-        # parse time
+        text = text.replace("\\n", "\n")  # convert literal \n to real newline
         try:
             hour, minute = map(int, self.time_str.split(":"))
         except Exception:
@@ -83,7 +76,6 @@ class ScheduleModal(discord.ui.Modal, title="Schedule message"):
             return
 
         days_list = [d.strip().lower() for d in self.days.split(",")]
-
         add_schedule(text, self.channel.id, days_list, hour, minute, self.timezone)
 
         await interaction.response.send_message(
@@ -96,8 +88,8 @@ class ScheduleModal(discord.ui.Modal, title="Schedule message"):
 async def on_ready():
     print(f"✅ Logged in as {client.user} (ID: {client.user.id})")
     try:
-        await tree.sync()  # registers slash commands (may take minutes for global commands)
-        print("✅ Commands synced")
+        await tree.sync()
+        print("✅ Slash commands synced")
     except Exception as e:
         print("⚠️ Command sync failed:", e)
     schedule_checker.start()
@@ -106,12 +98,6 @@ async def on_ready():
 @tree.command(name="addschedule", description="Add a schedule (opens a modal to enter multiline message).")
 @app_commands.describe(channel="Channel to send the message in", time="Time in HH:MM (24h)", days="Comma-separated days (monday,tuesday)")
 async def addschedule(interaction: discord.Interaction, channel: discord.TextChannel, time: str, days: str):
-    """
-    Command flow:
-    1) User runs /addschedule (channel, time, days)
-    2) A modal pops up for the multi-line message
-    3) On submit, the schedule is created
-    """
     modal = ScheduleModal(channel, time, days, TIMEZONE_DEFAULT)
     await interaction.response.send_modal(modal)
 
@@ -120,13 +106,11 @@ async def listschedules(interaction: discord.Interaction):
     if not schedules:
         await interaction.response.send_message("📭 No schedules set.", ephemeral=True)
         return
-
     lines = ["**📅 Current Schedules:**"]
     for i, s in enumerate(schedules, start=1):
         ch = client.get_channel(s["channel_id"])
         ch_name = ch.mention if ch else f"ID:{s['channel_id']}"
         lines.append(f"**{i}** ➤ {ch_name} | {', '.join(s['days'])} at {s['hour']:02d}:{s['minute']:02d} ({s['timezone']}) | Msg: {s['message'][:200]}{'...' if len(s['message'])>200 else ''}")
-
     await interaction.response.send_message("\n".join(lines), ephemeral=True)
 
 @tree.command(name="removeschedule", description="Remove a schedule by index (use /listschedules to see indices)")
@@ -149,7 +133,19 @@ async def help_cmd(interaction: discord.Interaction):
     embed.add_field(name="/listschedules", value="Show all schedules.", inline=False)
     embed.add_field(name="/removeschedule index", value="Remove schedule by index.", inline=False)
     embed.add_field(name="/clearschedules", value="Remove all schedules.", inline=False)
+    embed.add_field(name="/warn member reason", value="Send a private DM warning to a member.", inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# ---------------- NEW COMMAND: Warn ---------------- #
+@tree.command(name="warn", description="Send a warning DM to a user")
+@app_commands.describe(member="User to warn", reason="Reason for the warning")
+async def warn(interaction: discord.Interaction, member: discord.User, reason: str):
+    """Warns a member by sending them a direct message. Works in DMs and servers."""
+    try:
+        await member.send(f"⚠️ **You have been warned!**\nReason: {reason}")
+        await interaction.response.send_message(f"✅ Warning sent to {member.mention}.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message(f"❌ Could not DM {member.mention}. Their DMs might be closed.", ephemeral=True)
 
 # ---------------- Background scheduler ---------------- #
 @tasks.loop(seconds=50)
@@ -159,11 +155,8 @@ async def schedule_checker():
     current_hour = now.hour
     current_minute = now.minute
     current_date = now.date()
-
     for s in schedules:
-        if (current_day in s["days"]
-            and current_hour == s["hour"]
-            and current_minute == s["minute"]):
+        if (current_day in s["days"] and current_hour == s["hour"] and current_minute == s["minute"]):
             if s["last_sent"] != current_date:
                 ch = client.get_channel(s["channel_id"])
                 if ch:
