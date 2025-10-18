@@ -210,6 +210,17 @@ async def warn(interaction: discord.Interaction, member: discord.User, reason: s
         await interaction.response.send_message(f"✅ Warning sent to {member.mention}.", ephemeral=True)
     except discord.Forbidden:
         await interaction.response.send_message(f"❌ Could not DM {member.mention}. Their DMs might be closed.", ephemeral=True)
+        
+ # ---------------- Direct DM Command ---------------- #
+@tree.command(name="dmuser", description="Send a direct DM to a user")
+@app_commands.describe(member="User to DM", message="Message content to send")
+async def dmuser(interaction: discord.Interaction, member: discord.User, message: str):
+    try:
+        await member.send(message)
+        await interaction.response.send_message(f"✅ DM sent to {member.mention}.", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message(f"❌ Could not DM {member.mention}. Their DMs might be closed.", ephemeral=True)
+       
 
 # ---------------- Background scheduler ---------------- #
 @tasks.loop(seconds=50)
@@ -238,3 +249,4 @@ async def before_schedule_checker():
 
 # ---------------- RUN ---------------- #
 client.run(TOKEN)
+
