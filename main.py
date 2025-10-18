@@ -201,25 +201,61 @@ async def help_cmd(interaction: discord.Interaction):
     embed.add_field(name="/warn", value="Send a private DM warning to a member.", inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# ---------------- Warn Command ---------------- #
+# ---------------- Warn Command (with multiline input) ---------------- #
+class WarnModal(discord.ui.Modal, title="Send Warning"):
+    reason = discord.ui.TextInput(
+        label="Warning Reason",
+        style=discord.TextStyle.paragraph,
+        placeholder="Enter reason for warning. You can use multiple lines.",
+        max_length=2000
+    )
+
+    def __init__(self, member: discord.User):
+        super().__init__()
+        self.member = member
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            await self.member.send(f"⚠️ **You have been warned!**\n\n{self.reason.value}")
+            await interaction.response.send_message(f"✅ Warning sent to {self.member.mention}.", ephemeral=True)
+        except discord.Forbidden:
+            await interaction.response.send_message(f"❌ Could not DM {self.member.mention}. Their DMs might be closed.", ephemeral=True)
+
+
 @tree.command(name="warn", description="Send a warning DM to a user")
-@app_commands.describe(member="User to warn", reason="Reason for the warning")
-async def warn(interaction: discord.Interaction, member: discord.User, reason: str):
-    try:
-        await member.send(f"⚠️ **You have been warned!**\nReason: {reason}")
-        await interaction.response.send_message(f"✅ Warning sent to {member.mention}.", ephemeral=True)
-    except discord.Forbidden:
-        await interaction.response.send_message(f"❌ Could not DM {member.mention}. Their DMs might be closed.", ephemeral=True)
-        
- # ---------------- Direct DM Command ---------------- #
+@app_commands.describe(member="User to warn")
+async def warn(interaction: discord.Interaction, member: discord.User):
+    modal = WarnModal(member)
+    await interaction.response.send_modal(modal)
+
+
+# ---------------- Direct DM Command (with multiline input) ---------------- #
+class DMModal(discord.ui.Modal, title="Send Direct Message"):
+    message = discord.ui.TextInput(
+        label="Message Content",
+        style=discord.TextStyle.paragraph,
+        placeholder="Type your message here. You can use multiple lines.",
+        max_length=2000
+    )
+
+    def __init__(self, member: discord.User):
+        super().__init__()
+        self.member = member
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            await self.member.send(self.message.value)
+            await interaction.response.send_message(f"✅ DM sent to {self.member.mention}.", ephemeral=True)
+        except discord.Forbidden:
+            await interaction.response.send_message(f"❌ Could not DM {self.member.mention}. Their DMs might be closed.", ephemeral=True)
+
+
 @tree.command(name="dmuser", description="Send a direct DM to a user")
-@app_commands.describe(member="User to DM", message="Message content to send")
-async def dmuser(interaction: discord.Interaction, member: discord.User, message: str):
-    try:
-        await member.send(message)
-        await interaction.response.send_message(f"✅ DM sent to {member.mention}.", ephemeral=True)
-    except discord.Forbidden:
-        await interaction.response.send_message(f"❌ Could not DM {member.mention}. Their DMs might be closed.", ephemeral=True)
+@app_commands.describe(member="User to DM")
+async def dmuser(interaction: discord.Interaction, member: discord.User):
+    modal = DMModal(member)
+    await interaction.response.send_modal(modal)
+
        
 
 # ---------------- Background scheduler ---------------- #
@@ -249,4 +285,5 @@ async def before_schedule_checker():
 
 # ---------------- RUN ---------------- #
 client.run(TOKEN)
+
 
