@@ -26,6 +26,17 @@ tree = app_commands.CommandTree(client)
 schedules = []          # temporary (reset on restart)
 default_schedules = []  # permanent (stored in file)
 
+# ---------------- Permission Helper ---------------- #
+def is_admin(interaction: discord.Interaction) -> bool:
+    """Return True if the user has Manage Guild or Administrator permissions."""
+    perms = getattr(interaction.user, "guild_permissions", None)
+    if not perms:
+        return False
+    if perms.administrator or perms.manage_guild:
+        return True
+    return False
+
+
 # ---------------- HTTP SERVER (keepalive) ---------------- #
 class PingHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -140,14 +151,25 @@ async def on_ready():
 @tree.command(name="addschedule", description="Add a temporary schedule (lost on restart).")
 @app_commands.describe(channel="Channel to send the message in", time="Time in HH:MM (24h)", days="Comma-separated days (monday,tuesday)")
 async def addschedule(interaction: discord.Interaction, channel: discord.TextChannel, time: str, days: str):
+    if not is_admin(interaction):
+        await interaction.response.send_message("❌ You don't have permission to use this command.", ephemeral=True)
+        return
+
     modal = ScheduleModal(channel, time, days, TIMEZONE_DEFAULT, save_default=False)
     await interaction.response.send_modal(modal)
+
+
 
 @tree.command(name="adddefaultschedule", description="Add a permanent schedule that stays saved even after restart.")
 @app_commands.describe(channel="Channel to send the message in", time="Time in HH:MM (24h)", days="Comma-separated days (monday,tuesday)")
 async def adddefaultschedule(interaction: discord.Interaction, channel: discord.TextChannel, time: str, days: str):
+    if not is_admin(interaction):
+        await interaction.response.send_message("❌ You don't have permission to use this command.", ephemeral=True)
+        return
+
     modal = ScheduleModal(channel, time, days, TIMEZONE_DEFAULT, save_default=True)
     await interaction.response.send_modal(modal)
+
 
 @tree.command(name="listschedules", description="List all schedules (temporary + permanent)")
 async def listschedules(interaction: discord.Interaction):
@@ -225,6 +247,10 @@ class WarnModal(discord.ui.Modal, title="Send Warning"):
 @tree.command(name="warn", description="Send a warning DM to a user")
 @app_commands.describe(member="User to warn")
 async def warn(interaction: discord.Interaction, member: discord.User):
+    if not is_admin(interaction):
+        await interaction.response.send_message("❌ You don't have permission to use this command.", ephemeral=True)
+        return
+
     modal = WarnModal(member)
     await interaction.response.send_modal(modal)
 
@@ -253,6 +279,10 @@ class DMModal(discord.ui.Modal, title="Send Direct Message"):
 @tree.command(name="dmuser", description="Send a direct DM to a user")
 @app_commands.describe(member="User to DM")
 async def dmuser(interaction: discord.Interaction, member: discord.User):
+    if not is_admin(interaction):
+        await interaction.response.send_message("❌ You don't have permission to use this command.", ephemeral=True)
+        return
+
     modal = DMModal(member)
     await interaction.response.send_modal(modal)
 
@@ -285,5 +315,3 @@ async def before_schedule_checker():
 
 # ---------------- RUN ---------------- #
 client.run(TOKEN)
-
-
