@@ -26,6 +26,9 @@ tree = app_commands.CommandTree(client)
 schedules = []          # temporary (reset on restart)
 default_schedules = []  # permanent (stored in file)
 
+# Global toggle for schedule sending
+schedules_enabled = True
+
 # ---------------- Permission Helper ---------------- #
 def is_admin(interaction: discord.Interaction) -> bool:
     """Return True if the user has Manage Guild or Administrator permissions."""
@@ -61,19 +64,89 @@ def save_defaults():
     except Exception as e:
         print("⚠️ Failed to save defaults:", e)
 
+
 def load_defaults():
-    """Load permanent schedules from JSON file."""
+    """Load permanent schedules from JSON file or set hardcoded defaults."""
     global default_schedules
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
                 default_schedules = json.load(f)
                 print(f"✅ Loaded {len(default_schedules)} default schedules from file.")
+                if default_schedules:
+                    return
         except Exception as e:
             print("⚠️ Failed to load defaults:", e)
             default_schedules = []
-    else:
-        default_schedules = []
+
+    # Hardcoded fallback schedules (always available)
+    default_schedules = [
+        {
+            "channel_id": 1375715974774394901,
+            "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+            "hour": 11,
+            "minute": 55,
+            "message": "# Registration Starting For 3 PM In 5 Min!!!\n\n**Register here <#1375715974774394901> **  \n**Check Tag in <#1375716156836548650> with proper 2 tags**\n\n|| @everyone ||",
+            "timezone": TIMEZONE_DEFAULT,
+            "last_sent": None
+        },
+        {
+            "channel_id": 1380043318037057656,
+            "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+            "hour": 14,
+            "minute": 55,
+            "message": "# Registration Starting For 6 PM In 5 Min!!!\n\n**Register here <#1380043318037057656> **  \n**Check Tag in <#1375716156836548650> with proper 2 tags**\n\n|| @everyone ||",
+            "timezone": TIMEZONE_DEFAULT,
+            "last_sent": None
+        },
+        {
+            "channel_id": 1418814352580149399,
+            "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+            "hour": 17,
+            "minute": 55,
+            "message": "# Registration Starting For 9 PM In 5 Min!!!\n\n**Register here <#1418814352580149399> **  \n**Check Tag in <#1375716156836548650> with proper 2 tags**\n\n|| @everyone ||",
+            "timezone": TIMEZONE_DEFAULT,
+            "last_sent": None
+        },
+        {
+            "channel_id": 1377871211765436468,
+            "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+            "hour": 14,
+            "minute": 50,
+            "message": "**RULES OF CUSTOM** !!\n\n• RANDOM INVITE = KICK  \n• NO CHAT  \n• TAKE SQUAD ENTRY  \n• AFTER JOINING TELL TEAM NAME & SLOT NO.  \n• IF ANY ISSUE THEN TAG IN <#1375716279981183056>  \n• ALSO COME TO HELP DESK  \n\n**IDP TIME :- 2:55PM**  \n**ST TIME :- 3:07PM**",
+            "timezone": TIMEZONE_DEFAULT,
+            "last_sent": None
+        },
+        {
+            "channel_id": 1380043562338484314,
+            "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+            "hour": 17,
+            "minute": 50,
+            "message": "**RULES OF CUSTOM** !!\n\n• RANDOM INVITE = KICK  \n• NO CHAT  \n• TAKE SQUAD ENTRY  \n• AFTER JOINING TELL TEAM NAME & SLOT NO.  \n• IF ANY ISSUE THEN TAG IN <#1375716279981183056>  \n• ALSO COME TO HELP DESK  \n\n**IDP TIME :- 8:55PM**  \n**ST TIME :- 9:07PM**",
+            "timezone": TIMEZONE_DEFAULT,
+            "last_sent": None
+        },
+        {
+            "channel_id": 1418814704444244009,
+            "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+            "hour": 20,
+            "minute": 50,
+            "message": "**RULES OF CUSTOM** !!\n\n• RANDOM INVITE = KICK  \n• NO CHAT  \n• TAKE SQUAD ENTRY  \n• AFTER JOINING TELL TEAM NAME & SLOT NO.  \n• IF ANY ISSUE THEN TAG IN <#1375716279981183056>  \n• ALSO COME TO HELP DESK  \n\n**IDP TIME :- 5:55PM**  \n**ST TIME :- 6:07PM**",
+            "timezone": TIMEZONE_DEFAULT,
+            "last_sent": None
+        },
+        {
+            "channel_id": 1335115774674862203,
+            "days": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
+            "hour": 8,
+            "minute": 0,
+            "message": "**Ram Ram <@&1348282469115367497> 🙏**  \n**Good morning! 🌞**  \n**Aasha hai aaj ka din aapke liye khushiyon aur sukh-shanti se bhara ho ✨🌸**",
+            "timezone": TIMEZONE_DEFAULT,
+            "last_sent": None
+        },
+    ]
+    print(f"✅ Loaded {len(default_schedules)} hardcoded fallback schedules.")
+
 
 def add_schedule(message, channel_id, days, hour, minute, timezone, last_sent=None):
     schedules.append({
@@ -159,7 +232,6 @@ async def addschedule(interaction: discord.Interaction, channel: discord.TextCha
     await interaction.response.send_modal(modal)
 
 
-
 @tree.command(name="adddefaultschedule", description="Add a permanent schedule that stays saved even after restart.")
 @app_commands.describe(channel="Channel to send the message in", time="Time in HH:MM (24h)", days="Comma-separated days (monday,tuesday)")
 async def adddefaultschedule(interaction: discord.Interaction, channel: discord.TextChannel, time: str, days: str):
@@ -185,6 +257,7 @@ async def listschedules(interaction: discord.Interaction):
         lines.append(f"**{i}** {t} ➤ {ch_name} | {', '.join(s['days'])} at {s['hour']:02d}:{s['minute']:02d} ({s['timezone']}) | Msg: {s['message'][:150]}{'...' if len(s['message'])>150 else ''}")
     await interaction.response.send_message("\n".join(lines), ephemeral=True)
 
+
 @tree.command(name="listdefaultschedules", description="List permanent schedules only")
 async def listdefaultschedules(interaction: discord.Interaction):
     if not default_schedules:
@@ -197,6 +270,7 @@ async def listdefaultschedules(interaction: discord.Interaction):
         lines.append(f"**{i}** ➤ {ch_name} | {', '.join(s['days'])} at {s['hour']:02d}:{s['minute']:02d} ({s['timezone']}) | Msg: {s['message'][:150]}{'...' if len(s['message'])>150 else ''}")
     await interaction.response.send_message("\n".join(lines), ephemeral=True)
 
+
 @tree.command(name="removedefaultschedule", description="Remove a permanent schedule by index")
 async def removedefaultschedule(interaction: discord.Interaction, index: int):
     if index < 1 or index > len(default_schedules):
@@ -206,10 +280,12 @@ async def removedefaultschedule(interaction: discord.Interaction, index: int):
     save_defaults()
     await interaction.response.send_message(f"✅ Removed permanent schedule: `{removed['message'][:80]}...`", ephemeral=True)
 
+
 @tree.command(name="clearschedules", description="Clear all temporary schedules")
 async def clearschedules(interaction: discord.Interaction):
     schedules.clear()
     await interaction.response.send_message("🗑️ All temporary schedules cleared.", ephemeral=True)
+
 
 @tree.command(name="help", description="Show help")
 async def help_cmd(interaction: discord.Interaction):
@@ -222,6 +298,22 @@ async def help_cmd(interaction: discord.Interaction):
     embed.add_field(name="/clearschedules", value="Clear temporary schedules only.", inline=False)
     embed.add_field(name="/warn", value="Send a private DM warning to a member.", inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@tree.command(name="toggleschedules", description="Turn all scheduled messages on or off.")
+async def toggleschedules(interaction: discord.Interaction, state: str):
+    global schedules_enabled
+    if not is_admin(interaction):
+        await interaction.response.send_message("❌ You don't have permission to use this command.", ephemeral=True)
+        return
+    state = state.lower()
+    if state not in ["on", "off"]:
+        await interaction.response.send_message("⚠️ Use `/toggleschedules on` or `/toggleschedules off`.", ephemeral=True)
+        return
+
+    schedules_enabled = (state == "on")
+    status_text = "🟢 Schedules enabled." if schedules_enabled else "🔴 Schedules disabled for now."
+    await interaction.response.send_message(status_text, ephemeral=True)
 
 # ---------------- Warn Command (with multiline input) ---------------- #
 class WarnModal(discord.ui.Modal, title="Send Warning"):
@@ -286,32 +378,36 @@ async def dmuser(interaction: discord.Interaction, member: discord.User):
     modal = DMModal(member)
     await interaction.response.send_modal(modal)
 
-       
-
-# ---------------- Background scheduler ---------------- #
-@tasks.loop(seconds=50)
+# ---------------- Schedule Checker ---------------- #
+@tasks.loop(seconds=30)
 async def schedule_checker():
-    now = datetime.now(pytz.timezone(TIMEZONE_DEFAULT))
-    current_day = now.strftime("%A").lower()
-    current_hour = now.hour
-    current_minute = now.minute
-    current_date = now.date()
+    if not schedules_enabled:
+        return
 
-    for s in default_schedules + schedules:
-        if (current_day in s["days"] and current_hour == s["hour"] and current_minute == s["minute"]):
-            if s.get("last_sent") != str(current_date):
-                ch = client.get_channel(s["channel_id"])
-                if ch:
-                    try:
-                        await ch.send(s["message"])
-                        s["last_sent"] = str(current_date)
-                        save_defaults()
-                    except Exception as e:
-                        print("❌ Failed to send message:", e)
+    now_utc = datetime.utcnow().replace(second=0, microsecond=0)
+    all_scheds = default_schedules + schedules
 
-@schedule_checker.before_loop
-async def before_schedule_checker():
-    await client.wait_until_ready()
+    for s in all_scheds:
+        tz = pytz.timezone(s.get("timezone", TIMEZONE_DEFAULT))
+        now = datetime.now(tz)
+        current_day = now.strftime("%A").lower()
 
-# ---------------- RUN ---------------- #
+        if current_day not in s["days"]:
+            continue
+
+        if s.get("last_sent") == now.strftime("%Y-%m-%d %H:%M"):
+            continue
+
+        if now.hour == s["hour"] and now.minute == s["minute"]:
+            ch = client.get_channel(s["channel_id"])
+            if ch:
+                try:
+                    formatted_msg = s["message"].replace("\\n", "\n").strip()
+                    await ch.send(formatted_msg)
+                    s["last_sent"] = now.strftime("%Y-%m-%d %H:%M")
+                    print(f"✅ Sent scheduled message to #{ch.name}")
+                except Exception as e:
+                    print(f"⚠️ Failed to send message to {ch.id}: {e}")
+
+# ---------------- Run Bot ---------------- #
 client.run(TOKEN)
