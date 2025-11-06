@@ -122,7 +122,7 @@ def load_defaults():
             "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
             "hour": 17,
             "minute": 50,
-            "message": "**RULES OF CUSTOM** !!\n\n• RANDOM INVITE = KICK  \n• NO CHAT  \n• TAKE SQUAD ENTRY  \n• AFTER JOINING TELL TEAM NAME & SLOT NO.  \n• IF ANY ISSUE THEN TAG IN <#1375716279981183056>  \n• ALSO COME TO HELP DESK  \n\n**IDP TIME :- 8:55PM**  \n**ST TIME :- 9:07PM**",
+            "message": "**RULES OF CUSTOM** !!\n\n• RANDOM INVITE = KICK  \n• NO CHAT  \n• TAKE SQUAD ENTRY  \n• AFTER JOINING TELL TEAM NAME & SLOT NO.  \n• IF ANY ISSUE THEN TAG IN <#1375716279981183056>  \n• ALSO COME TO HELP DESK  \n\n**IDP TIME :- 5:55PM**  \n**ST TIME :- 6:07PM**",
             "timezone": TIMEZONE_DEFAULT,
             "last_sent": None
         },
@@ -131,7 +131,7 @@ def load_defaults():
             "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
             "hour": 20,
             "minute": 50,
-            "message": "**RULES OF CUSTOM** !!\n\n• RANDOM INVITE = KICK  \n• NO CHAT  \n• TAKE SQUAD ENTRY  \n• AFTER JOINING TELL TEAM NAME & SLOT NO.  \n• IF ANY ISSUE THEN TAG IN <#1375716279981183056>  \n• ALSO COME TO HELP DESK  \n\n**IDP TIME :- 5:55PM**  \n**ST TIME :- 6:07PM**",
+            "message": "**RULES OF CUSTOM** !!\n\n• RANDOM INVITE = KICK  \n• NO CHAT  \n• TAKE SQUAD ENTRY  \n• AFTER JOINING TELL TEAM NAME & SLOT NO.  \n• IF ANY ISSUE THEN TAG IN <#1375716279981183056>  \n• ALSO COME TO HELP DESK  \n\n**IDP TIME :- 8:55PM**  \n**ST TIME :- 9:07PM**",
             "timezone": TIMEZONE_DEFAULT,
             "last_sent": None
         },
@@ -411,3 +411,4 @@ async def schedule_checker():
 
 # ---------------- Run Bot ---------------- #
 client.run(TOKEN)
+
