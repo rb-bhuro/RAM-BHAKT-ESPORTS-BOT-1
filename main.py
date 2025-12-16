@@ -29,6 +29,115 @@ default_schedules = []  # permanent (stored in file)
 # Global toggle for schedule sending
 schedules_enabled = True
 
+# 🔒 MOD LOGGING FILE
+MOD_LOG_FILE = "modlog.json"
+
+# intents = discord.Intents.default()
+# intents.members = True
+# intents.message_content = True
+# intents.guilds = True
+# intents.voice_states = True
+# intents.moderation = True
+
+# client = discord.Client(intents=intents)
+# tree = app_commands.CommandTree(client)
+
+import re
+
+@client.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    # Normalize message
+    raw = message.content.lower()
+    cleaned = re.sub(r'[^a-z\s]', '', raw)   # remove emojis & symbols
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()  # remove extra spaces
+
+    # 👋 Normal greetings
+    if any(word in cleaned for word in ["hi", "hello", "hey"]):
+        await message.reply("Hello 👋 How can I help you?")
+        return
+
+    # 🙏 Special greetings
+    if "ram ram" in cleaned:
+        await message.reply("🙏 Ram Ram")
+        return
+
+    if "radhe radhe" in cleaned:
+        await message.reply("🌸 Radhe Radhe")
+        return
+
+    if "jai shree krishna" in cleaned or "jay shree krishn" in cleaned:
+        await message.reply("🦚 Jai Shree Krishna")
+        return
+
+    if "good morning" in cleaned or "shubh prabhat" in cleaned:
+        await message.reply("🌅 Good Morning")
+        return
+
+    if "good night" in cleaned or "shubh ratri" in cleaned or "subh ratri" in cleaned:
+        await message.reply("🌙 Shubh Ratri")
+        return
+
+    # 🆘 Help message
+    if "help" in cleaned or "support" in cleaned:
+        await message.reply(
+            "🆘 **Need help?**\n"
+            "Please create a ticket in **#support-ticket** for fast support 🎫"
+        )
+        return
+
+    # IMPORTANT: allow other commands & listeners
+    await client.process_commands(message)
+
+
+# ---------------- MOD LOGGING STORAGE ---------------- #
+modlog_config = {
+    "mod_role_id": None,
+    "log_channel_id": None
+}
+
+def save_modlog():
+    with open(MOD_LOG_FILE, "w") as f:
+        json.dump(modlog_config, f)
+
+def load_modlog():
+    global modlog_config
+    if os.path.exists(MOD_LOG_FILE):
+        with open(MOD_LOG_FILE, "r") as f:
+            modlog_config = json.load(f)
+
+def is_mod(member: discord.Member):
+    if not modlog_config["mod_role_id"]:
+        return False
+    return any(r.id == modlog_config["mod_role_id"] for r in member.roles)
+
+async def send_log(guild, embed):
+    if not modlog_config["log_channel_id"]:
+        return
+    ch = guild.get_channel(modlog_config["log_channel_id"])
+    if ch:
+        await ch.send(embed=embed)
+
+def make_log_embed(title, mod, target, details=None, color=discord.Color.red()):
+    embed = discord.Embed(title=title, color=color, timestamp=datetime.utcnow())
+    embed.add_field(name="👮 Moderator", value=f"{mod.mention} (`{mod.id}`)", inline=False)
+    embed.add_field(
+        name="🎯 Target",
+        value=f"{target.mention if hasattr(target,'mention') else target} (`{getattr(target,'id','N/A')}`)",
+        inline=False
+    )
+    if details:
+        embed.add_field(name="📄 Details", value=details, inline=False)
+    return embed
+
+# # ---------------- Permission Helper ---------------- #
+# def is_admin(interaction: discord.Interaction) -> bool:
+#     perms = getattr(interaction.user, "guild_permissions", None)
+#     return perms and (perms.administrator or perms.manage_guild)
+
+
 # ---------------- Permission Helper ---------------- #
 def is_admin(interaction: discord.Interaction) -> bool:
     """Return True if the user has Manage Guild or Administrator permissions."""
@@ -158,6 +267,146 @@ def add_schedule(message, channel_id, days, hour, minute, timezone, last_sent=No
         "timezone": timezone,
         "last_sent": last_sent
     })
+
+# ---------------- SETUP MOD LOG ---------------- #
+@tree.command(name="setmodlog", description="Setup moderator activity logging")
+@app_commands.describe(mod_role_id="Moderator role ID")
+async def setmodlog(interaction: discord.Interaction, mod_role_id: str):
+    if not is_admin(interaction):
+        await interaction.response.send_message("❌ Admin only.", ephemeral=True)
+        return
+
+    guild = interaction.guild
+    mod_role = guild.get_role(int(mod_role_id))
+    if not mod_role:
+        await interaction.response.send_message("❌ Invalid role ID.", ephemeral=True)
+        return
+
+    overwrites = {
+        guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        guild.me: discord.PermissionOverwrite(view_channel=True),
+        mod_role: discord.PermissionOverwrite(view_channel=True)
+    }
+
+    channel = await guild.create_text_channel(
+        "mod-activity-logs",
+        overwrites=overwrites,
+        reason="Moderator activity logging"
+    )
+
+    modlog_config["mod_role_id"] = int(mod_role_id)
+    modlog_config["log_channel_id"] = channel.id
+    save_modlog()
+
+    await interaction.response.send_message(
+        f"✅ Mod log channel created: {channel.mention}",
+        ephemeral=True
+    )
+
+# ---------------- MESSAGE DELETE ---------------- #
+@client.event
+async def on_message_delete(message):
+    if not message.guild:
+        return
+
+    async for entry in message.guild.audit_logs(limit=1, action=discord.AuditLogAction.message_delete):
+        mod = entry.user
+        if isinstance(mod, discord.Member) and is_mod(mod):
+            embed = make_log_embed(
+                "🗑 Message Deleted",
+                mod,
+                message.author,
+                f"📍 Channel: {message.channel.mention}\n```{message.content or 'Empty'}```"
+            )
+            await send_log(message.guild, embed)
+        break
+
+# ---------------- ROLE ADD / REMOVE ---------------- #
+@client.event
+async def on_member_update(before, after):
+    if before.roles != after.roles:
+        async for entry in after.guild.audit_logs(limit=1, action=discord.AuditLogAction.member_role_update):
+            mod = entry.user
+            if is_mod(mod) and entry.target.id == after.id:
+                added = set(after.roles) - set(before.roles)
+                removed = set(before.roles) - set(after.roles)
+                details = ""
+                if added:
+                    details += "➕ Added: " + ", ".join(r.mention for r in added) + "\n"
+                if removed:
+                    details += "➖ Removed: " + ", ".join(r.mention for r in removed)
+                embed = make_log_embed("🎭 Role Updated", mod, after, details, discord.Color.orange())
+                await send_log(after.guild, embed)
+            break
+
+    if before.communication_disabled_until != after.communication_disabled_until:
+        async for entry in after.guild.audit_logs(limit=1, action=discord.AuditLogAction.member_update):
+            mod = entry.user
+            if is_mod(mod) and entry.target.id == after.id:
+                action = "⏱ Timeout Applied" if after.communication_disabled_until else "✅ Timeout Removed"
+                embed = make_log_embed(
+                    action,
+                    mod,
+                    after,
+                    f"Until: {after.communication_disabled_until}"
+                )
+                await send_log(after.guild, embed)
+            break
+
+# ---------------- KICK ---------------- #
+@client.event
+async def on_member_remove(member):
+    async for entry in member.guild.audit_logs(limit=1, action=discord.AuditLogAction.kick):
+        mod = entry.user
+        if is_mod(mod) and entry.target.id == member.id:
+            embed = make_log_embed("👢 Member Kicked", mod, member)
+            await send_log(member.guild, embed)
+        break
+
+# ---------------- BAN ---------------- #
+@client.event
+async def on_member_ban(guild, user):
+    async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.ban):
+        mod = entry.user
+        if is_mod(mod) and entry.target.id == user.id:
+            embed = make_log_embed("🔨 Member Banned", mod, user)
+            await send_log(guild, embed)
+        break
+
+# ---------------- VOICE ---------------- #
+@client.event
+async def on_voice_state_update(member, before, after):
+    if not is_mod(member):
+        return
+    if before.channel != after.channel:
+        action = "🔊 Joined VC" if after.channel else "🔇 Left VC"
+        channel = after.channel or before.channel
+        embed = make_log_embed(action, member, member, f"Channel: {channel.mention}")
+        await send_log(member.guild, embed)
+
+# ---------------- ROLE CREATE / DELETE ---------------- #
+@client.event
+async def on_guild_role_create(role):
+    async for entry in role.guild.audit_logs(limit=1, action=discord.AuditLogAction.role_create):
+        mod = entry.user
+        if is_mod(mod):
+            embed = make_log_embed("🆕 Role Created", mod, role)
+            await send_log(role.guild, embed)
+        break
+
+@client.event
+async def on_guild_role_delete(role):
+    async for entry in role.guild.audit_logs(limit=1, action=discord.AuditLogAction.role_delete):
+        mod = entry.user
+        if is_mod(mod):
+            embed = make_log_embed("❌ Role Deleted", mod, role)
+            await send_log(role.guild, embed)
+        break
+
+# # ---------------- Schedule Checker (UNCHANGED) ---------------- #
+# @tasks.loop(seconds=30)
+# async def schedule_checker():
+#     pass
 
 # ---------------- Modal for multiline message ---------------- #
 class ScheduleModal(discord.ui.Modal, title="Schedule message"):
