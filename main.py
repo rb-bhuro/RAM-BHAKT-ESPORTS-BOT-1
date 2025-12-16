@@ -10,7 +10,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # ---------------- CONFIG ---------------- #
-TOKEN = os.getenv("DISCORD_TOKEN") or ""
+TOKEN = os.getenv("DISCORD_TOKEN_") or ""
 TIMEZONE_DEFAULT = "Asia/Kolkata"
 PORT = int(os.environ.get("PORT", 8080))
 DATA_FILE = "schedules.json"
@@ -660,4 +660,5 @@ async def schedule_checker():
 
 # ---------------- Run Bot ---------------- #
 client.run(TOKEN)
+
 
