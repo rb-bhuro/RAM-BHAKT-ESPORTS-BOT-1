@@ -56,7 +56,7 @@ async def on_message(message):
 
     # 👋 Normal greetings
     if any(word in cleaned for word in ["hi", "hello", "hey"]):
-        await message.reply("Hello 👋 How can I help you?")
+        await message.reply("Hello kaise ho, sab thik.!")
         return
 
     # 🙏 Special greetings
@@ -660,6 +660,7 @@ async def schedule_checker():
 
 # ---------------- Run Bot ---------------- #
 client.run(TOKEN)
+
 
 
 
