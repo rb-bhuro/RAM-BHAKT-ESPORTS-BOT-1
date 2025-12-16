@@ -84,7 +84,7 @@ async def on_message(message):
     if "help" in cleaned or "support" in cleaned:
         await message.reply(
             "🆘 **Need help?**\n"
-            "Please create a ticket in **#support-ticket** for fast support 🎫"
+            "Please create a ticket in <#1437688698064867492> for fast support 🎫"
         )
         return
 
@@ -660,5 +660,6 @@ async def schedule_checker():
 
 # ---------------- Run Bot ---------------- #
 client.run(TOKEN)
+
 
 
