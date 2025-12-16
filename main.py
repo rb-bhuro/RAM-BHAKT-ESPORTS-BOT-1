@@ -53,6 +53,7 @@ async def on_message(message):
     raw = message.content.lower()
     cleaned = re.sub(r'[^a-z\s]', '', raw)   # remove emojis & symbols
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()  # remove extra spaces
+    words = cleaned.split()
 
     # 👋 Normal greetings
     if any(w in ["hi", "hello", "hey", "helo", "hy"] for w in words):
@@ -660,6 +661,7 @@ async def schedule_checker():
 
 # ---------------- Run Bot ---------------- #
 client.run(TOKEN)
+
 
 
 
