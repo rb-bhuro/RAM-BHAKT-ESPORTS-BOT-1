@@ -48,17 +48,38 @@ import re
 async def on_message(message):
     if message.author.bot:
         return
+    
+    # --- Admin AFK auto-reply ---
+    ADMIN_ID = 1252865476346904688  # replace with your admin user ID
+    MOD1_ID = 794774958361804871   # replace with your mod1 user ID
+    MOD2_ID = 1154340047928176650  # replace with your mod2 user ID
+
+    mentioned_ids = [u.id for u in message.mentions]
+    if ADMIN_ID in mentioned_ids:
+        admin_user = message.guild.get_member(ADMIN_ID)
+        mod1_user = message.guild.get_member(MOD1_ID)
+        mod2_user = message.guild.get_member(MOD2_ID)
+
+        admin_mention = admin_user.mention if admin_user else f"<@{ADMIN_ID}>"
+        mod1_mention = mod1_user.mention if mod1_user else f"<@{MOD1_ID}>"
+        mod2_mention = mod2_user.mention if mod2_user else f"<@{MOD2_ID}>"
+
+        await message.reply(
+            f"{admin_mention} is not available for a few days.\n"
+            f"For any query you may mention {mod1_mention} or {mod2_mention}."
+        )
+        # Optional: stop further processing if you want
+        # return
 
     # Normalize message
     raw = message.content.lower()
     cleaned = re.sub(r'[^a-z\s]', '', raw)   # remove emojis & symbols
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()  # remove extra spaces
-    words = cleaned.split()
 
     # 👋 Normal greetings
-    if any(w in ["hi", "hello", "hey", "helo", "hy"] for w in words):
-       await message.reply("Hello 👋, Kaise ho sab thik..!")
-       return
+    if any(word in cleaned for word in ["hi", "hello", "hey"]):
+        await message.reply("Hello 👋 How can I help you?")
+        return
 
     # 🙏 Special greetings
     if "ram ram" in cleaned:
@@ -85,7 +106,7 @@ async def on_message(message):
     if "help" in cleaned or "support" in cleaned:
         await message.reply(
             "🆘 **Need help?**\n"
-            "Please create a ticket in <#1437688698064867492> for fast support 🎫"
+            "Please create a ticket in **#support-ticket** for fast support 🎫"
         )
         return
 
@@ -377,13 +398,32 @@ async def on_member_ban(guild, user):
 # ---------------- VOICE ---------------- #
 @client.event
 async def on_voice_state_update(member, before, after):
-    if not is_mod(member):
+    if not modlog_config.get("mod_role_id"):
         return
-    if before.channel != after.channel:
-        action = "🔊 Joined VC" if after.channel else "🔇 Left VC"
-        channel = after.channel or before.channel
-        embed = make_log_embed(action, member, member, f"Channel: {channel.mention}")
-        await send_log(member.guild, embed)
+
+    # safer role check
+    if not any(r.id == modlog_config["mod_role_id"] for r in getattr(member, "roles", [])):
+        return
+
+    if before.channel == after.channel:
+        return
+
+    if after.channel:
+        action = "🔊 Joined Voice Channel"
+        channel = after.channel
+    else:
+        action = "🔇 Left Voice Channel"
+        channel = before.channel
+
+    embed = make_log_embed(
+        title=action,
+        mod=member,
+        target=member,
+        details=f"🎧 Channel: {channel.mention}"
+    )
+
+    await send_log(member.guild, embed)
+
 
 # ---------------- ROLE CREATE / DELETE ---------------- #
 @client.event
@@ -661,11 +701,4 @@ async def schedule_checker():
 
 # ---------------- Run Bot ---------------- #
 client.run(TOKEN)
-
-
-
-
-
-
-
 
