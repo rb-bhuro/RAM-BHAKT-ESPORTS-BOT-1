@@ -77,13 +77,17 @@ async def on_message(message):
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()  # remove extra spaces
 
     # 👋 Normal greetings
-    if any(word in cleaned for word in ["hi", "hello", "hey"]):
-        await message.reply("Hello 👋 How can I help you?")
+    if any(word in cleaned for word in ["hy", "hello", "hey"]):
+        await message.reply("Hello 👋 kaise ho sab thik..!")
         return
 
     # 🙏 Special greetings
     if "ram ram" in cleaned:
         await message.reply("🙏 Ram Ram")
+        return
+        
+    if "jay shree ram" in cleaned:
+        await message.reply("🙏 Jay Shree Ram")
         return
 
     if "radhe radhe" in cleaned:
@@ -701,4 +705,5 @@ async def schedule_checker():
 
 # ---------------- Run Bot ---------------- #
 client.run(TOKEN)
+
 
