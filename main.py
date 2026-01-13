@@ -30,7 +30,7 @@ default_schedules = []  # permanent (stored in file)
 schedules_enabled = True
 
 # 🔒 MOD LOGGING FILE
-MOD_LOG_FILE = "modlog.json"
+# MOD_LOG_FILE = "modlog.json"
 
 # intents = discord.Intents.default()
 # intents.members = True
@@ -49,25 +49,25 @@ async def on_message(message):
     if message.author.bot:
         return
     
-    # --- Admin AFK auto-reply ---
-    ADMIN_ID = 1252865476346904688  # replace with your admin user ID
-    MOD1_ID = 794774958361804871   # replace with your mod1 user ID
-    MOD2_ID = 1154340047928176650  # replace with your mod2 user ID
+#     # --- Admin AFK auto-reply ---
+#     ADMIN_ID = 1252865476346904688  # replace with your admin user ID
+#     MOD1_ID = 794774958361804871   # replace with your mod1 user ID
+#     MOD2_ID = 1154340047928176650  # replace with your mod2 user ID
 
-    mentioned_ids = [u.id for u in message.mentions]
-    if ADMIN_ID in mentioned_ids:
-        admin_user = message.guild.get_member(ADMIN_ID)
-        mod1_user = message.guild.get_member(MOD1_ID)
-        mod2_user = message.guild.get_member(MOD2_ID)
+#     mentioned_ids = [u.id for u in message.mentions]
+#     if ADMIN_ID in mentioned_ids:
+#         admin_user = message.guild.get_member(ADMIN_ID)
+#         mod1_user = message.guild.get_member(MOD1_ID)
+#         mod2_user = message.guild.get_member(MOD2_ID)
 
-        admin_mention = admin_user.mention if admin_user else f"<@{ADMIN_ID}>"
-        mod1_mention = mod1_user.mention if mod1_user else f"<@{MOD1_ID}>"
-        mod2_mention = mod2_user.mention if mod2_user else f"<@{MOD2_ID}>"
+#         admin_mention = admin_user.mention if admin_user else f"<@{ADMIN_ID}>"
+#         mod1_mention = mod1_user.mention if mod1_user else f"<@{MOD1_ID}>"
+#         mod2_mention = mod2_user.mention if mod2_user else f"<@{MOD2_ID}>"
 
-        await message.reply(
-            f"{admin_mention} is not available for a few days.\n"
-            f"For any query you may mention {mod1_mention} or {mod2_mention}."
-        )
+#         await message.reply(
+#             f"{admin_mention} is not available for a few days.\n"
+#             f"For any query you may mention {mod1_mention} or {mod2_mention}."
+#         )
         # Optional: stop further processing if you want
         # return
 
@@ -77,7 +77,7 @@ async def on_message(message):
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()  # remove extra spaces
 
     # 👋 Normal greetings
-    if any(word in cleaned for word in ["hy", "hello", "hey"]):
+    if any(word in cleaned for word in ["hello", "hey"]):
         await message.reply("Hello 👋 kaise ho sab thik..!")
         return
 
@@ -107,56 +107,56 @@ async def on_message(message):
         return
 
     # 🆘 Help message
-    if "help" in cleaned or "support" in cleaned:
-        await message.reply(
-            "🆘 **Need help?**\n"
-            "Please create a ticket in **#support-ticket** for fast support 🎫"
-        )
-        return
+    # if "help" in cleaned or "support" in cleaned:
+    #     await message.reply(
+    #         "🆘 **Need help?**\n"
+    #         "Please create a ticket in **#support-ticket** for fast support 🎫"
+    #     )
+    #     return
 
     # IMPORTANT: allow other commands & listeners
     await client.process_commands(message)
 
 
 # ---------------- MOD LOGGING STORAGE ---------------- #
-modlog_config = {
-    "mod_role_id": None,
-    "log_channel_id": None
-}
+# modlog_config = {
+#     "mod_role_id": None,
+#     "log_channel_id": None
+# }
 
-def save_modlog():
-    with open(MOD_LOG_FILE, "w") as f:
-        json.dump(modlog_config, f)
+# def save_modlog():
+#     with open(MOD_LOG_FILE, "w") as f:
+#         json.dump(modlog_config, f)
 
-def load_modlog():
-    global modlog_config
-    if os.path.exists(MOD_LOG_FILE):
-        with open(MOD_LOG_FILE, "r") as f:
-            modlog_config = json.load(f)
+# def load_modlog():
+#     global modlog_config
+#     if os.path.exists(MOD_LOG_FILE):
+#         with open(MOD_LOG_FILE, "r") as f:
+#             modlog_config = json.load(f)
 
-def is_mod(member: discord.Member):
-    if not modlog_config["mod_role_id"]:
-        return False
-    return any(r.id == modlog_config["mod_role_id"] for r in member.roles)
+# def is_mod(member: discord.Member):
+#     if not modlog_config["mod_role_id"]:
+#         return False
+#     return any(r.id == modlog_config["mod_role_id"] for r in member.roles)
 
-async def send_log(guild, embed):
-    if not modlog_config["log_channel_id"]:
-        return
-    ch = guild.get_channel(modlog_config["log_channel_id"])
-    if ch:
-        await ch.send(embed=embed)
+# async def send_log(guild, embed):
+#     if not modlog_config["log_channel_id"]:
+#         return
+#     ch = guild.get_channel(modlog_config["log_channel_id"])
+#     if ch:
+#         await ch.send(embed=embed)
 
-def make_log_embed(title, mod, target, details=None, color=discord.Color.red()):
-    embed = discord.Embed(title=title, color=color, timestamp=datetime.utcnow())
-    embed.add_field(name="👮 Moderator", value=f"{mod.mention} (`{mod.id}`)", inline=False)
-    embed.add_field(
-        name="🎯 Target",
-        value=f"{target.mention if hasattr(target,'mention') else target} (`{getattr(target,'id','N/A')}`)",
-        inline=False
-    )
-    if details:
-        embed.add_field(name="📄 Details", value=details, inline=False)
-    return embed
+# def make_log_embed(title, mod, target, details=None, color=discord.Color.red()):
+#     embed = discord.Embed(title=title, color=color, timestamp=datetime.utcnow())
+#     embed.add_field(name="👮 Moderator", value=f"{mod.mention} (`{mod.id}`)", inline=False)
+#     embed.add_field(
+#         name="🎯 Target",
+#         value=f"{target.mention if hasattr(target,'mention') else target} (`{getattr(target,'id','N/A')}`)",
+#         inline=False
+#     )
+#     if details:
+#         embed.add_field(name="📄 Details", value=details, inline=False)
+#     return embed
 
 # # ---------------- Permission Helper ---------------- #
 # def is_admin(interaction: discord.Interaction) -> bool:
@@ -225,15 +225,15 @@ def load_defaults():
             "timezone": TIMEZONE_DEFAULT,
             "last_sent": None
         },
-        {
-            "channel_id": 1380043318037057656,
-            "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
-            "hour": 14,
-            "minute": 55,
-            "message": "# Registration Starting For 6 PM In 5 Min!!!\n\n**Register here <#1380043318037057656> **  \n**Check Tag in <#1375716156836548650> with proper 2 tags**\n\n|| @everyone ||",
-            "timezone": TIMEZONE_DEFAULT,
-            "last_sent": None
-        },
+        # {
+        #     "channel_id": 1380043318037057656,
+        #     "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        #     "hour": 14,
+        #     "minute": 55,
+        #     "message": "# Registration Starting For 6 PM In 5 Min!!!\n\n**Register here <#1380043318037057656> **  \n**Check Tag in <#1375716156836548650> with proper 2 tags**\n\n|| @everyone ||",
+        #     "timezone": TIMEZONE_DEFAULT,
+        #     "last_sent": None
+        # },
         {
             "channel_id": 1418814352580149399,
             "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
@@ -252,15 +252,15 @@ def load_defaults():
             "timezone": TIMEZONE_DEFAULT,
             "last_sent": None
         },
-        {
-            "channel_id": 1380043562338484314,
-            "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
-            "hour": 17,
-            "minute": 50,
-            "message": "**RULES OF CUSTOM** !!\n\n• RANDOM INVITE = KICK  \n• NO CHAT  \n• TAKE SQUAD ENTRY  \n• AFTER JOINING TELL TEAM NAME & SLOT NO.  \n• IF ANY ISSUE THEN TAG IN <#1375716279981183056>  \n• ALSO COME TO HELP DESK  \n\n**IDP TIME :- 5:55PM**  \n**ST TIME :- 6:07PM**",
-            "timezone": TIMEZONE_DEFAULT,
-            "last_sent": None
-        },
+        # {
+        #     "channel_id": 1380043562338484314,
+        #     "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        #     "hour": 17,
+        #     "minute": 50,
+        #     "message": "**RULES OF CUSTOM** !!\n\n• RANDOM INVITE = KICK  \n• NO CHAT  \n• TAKE SQUAD ENTRY  \n• AFTER JOINING TELL TEAM NAME & SLOT NO.  \n• IF ANY ISSUE THEN TAG IN <#1375716279981183056>  \n• ALSO COME TO HELP DESK  \n\n**IDP TIME :- 5:55PM**  \n**ST TIME :- 6:07PM**",
+        #     "timezone": TIMEZONE_DEFAULT,
+        #     "last_sent": None
+        # },
         {
             "channel_id": 1418814704444244009,
             "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
@@ -705,5 +705,6 @@ async def schedule_checker():
 
 # ---------------- Run Bot ---------------- #
 client.run(TOKEN)
+
 
 
